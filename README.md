@@ -1,8 +1,11 @@
-# Extra Notes besides regular readme-
-To compile usage. cpp which is desgined for odroid, use the following commands
+# Extra notes besides regular readme
+To compile usage.cpp which is desgined for odroid and measure power consuption at INA231 update period, compile using the following commands
 export C_INCLUDE_PATH=/home/odroid/en:/home/odroid/en/odroid/:/home/odroid/en/common/:/home/odroid/en/common/ptime/:/home/odroid/en/inc/
 
 export CPLUS_INCLUDE_PATH=/home/odroid/en:/home/odroid/en/odroid/:/home/odroid/en/common/:/home/odroid/en/common/ptime/:/home/odroid/en/inc/
+
+g++ -c --std=c++11 /home/odroid/en/test.cpp
+g++ -pthread --std=c++11 -o executable test.o energymon-odroid.o emonutil.o ptim.o timeutil.o 
 
 
 
