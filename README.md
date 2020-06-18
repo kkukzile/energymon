@@ -1,3 +1,12 @@
+# Extra Notes besides regular readme-
+To compile usage. cpp which is desgined for odroid, use the following commands
+export C_INCLUDE_PATH=/home/odroid/en:/home/odroid/en/odroid/:/home/odroid/en/common/:/home/odroid/en/common/ptime/:/home/odroid/en/inc/
+
+export CPLUS_INCLUDE_PATH=/home/odroid/en:/home/odroid/en/odroid/:/home/odroid/en/common/:/home/odroid/en/common/ptime/:/home/odroid/en/inc/
+
+
+
+
 # Energy Monitoring Interface
 
 EnergyMon provides a general C interface for energy monitoring utilities.
