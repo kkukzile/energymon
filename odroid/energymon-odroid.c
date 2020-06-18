@@ -30,7 +30,7 @@ int energymon_get_default(energymon* em) {
 #define INA231_FILE_TEMPLATE_POWER INA231_DIR"/%s/sensor_W"
 #define INA231_FILE_TEMPLATE_ENABLE INA231_DIR"/%s/enable"
 #define INA231_FILE_TEMPLATE_UPDATE_PERIOD INA231_DIR"/%s/update_period"
-#define INA231_DEFAULT_UPDATE_INTERVAL_US 263808
+#define INA231_DEFAULT_UPDATE_INTERVAL_US 4480
 
 typedef struct energymon_odroid {
   // sensor update interval in microseconds
@@ -39,7 +39,7 @@ typedef struct energymon_odroid {
   pthread_t thread;
   int poll_sensors;
   // total energy estimate
-  uint64_t total_uj;
+  double total_uj;
   // sensor file descriptors
   unsigned int count;
   int fds[];
@@ -64,46 +64,6 @@ static inline int is_sensor_enabled(const char* file) {
   return errno ? 0 : atoi(cdata);
 }
 
-static inline long get_update_interval(char** sensors, unsigned int num) {
-  unsigned long ret = 0;
-  unsigned long tmp;
-  unsigned int i;
-  char file[64];
-  int fd;
-  char cdata[24];
-  int read_ret;
-
-  for (i = 0; i < num; i++) {
-    snprintf(file, sizeof(file), INA231_FILE_TEMPLATE_UPDATE_PERIOD, sensors[i]);
-    if ((fd = open(file, O_RDONLY)) <= 0) {
-      perror(file);
-      continue;
-    }
-    if ((read_ret = read(fd, cdata, sizeof(cdata))) <= 0) {
-      perror(file);
-    }
-    if (close(fd)) {
-      perror(file);
-    }
-    if (read_ret > 0) {
-      errno = 0;
-      tmp = strtoul(cdata, NULL, 0);
-      if (errno) {
-        perror(file);
-      } else {
-        // keep the largest update_interval
-        ret = tmp > ret ? tmp : ret;
-      }
-    }
-  }
-  if (!ret) {
-    ret = INA231_DEFAULT_UPDATE_INTERVAL_US;
-#ifdef ENERGYMON_DEBUG
-    fprintf(stderr, "get_update_interval: Using default value: %lu us\n", ret);
-#endif
-  }
-  return ret;
-}
 
 int energymon_finish_odroid(energymon* em) {
   if (em == NULL || em->state == NULL) {
@@ -178,7 +138,10 @@ static inline char** get_sensor_directories(unsigned int* count) {
     if (directories != NULL) {
       rewinddir(sensors_dir);
       for (i = 0; (entry = readdir(sensors_dir)) != NULL && i < *count;) {
-        if (is_sensor_dir(entry)) {
+        //Reading only big core sensor data
+        //Remove the if statement if you want all sensors
+        if (strcmp(entry->d_name,"3-0040")==0) {
+	
           directories[i] = strdup(entry->d_name);
           if (directories[i] == NULL) {
             break; // strdup failed
@@ -199,6 +162,7 @@ static inline char** get_sensor_directories(unsigned int* count) {
   }
   // ENOENT if no error but didn't find any sensor directories
   errno = (!err_save && *count == 0) ? ENOENT : err_save;
+	*count=1;
   return directories;
 }
 
@@ -220,10 +184,12 @@ static void* odroid_poll_sensors(void* args) {
   }
   energymon_sleep_us(state->read_delay_us, &state->poll_sensors);
   while (state->poll_sensors) {
+  	//cout<<"here";
     // read individual sensors
     for (sum_w = 0, errno = 0, i = 0; i < state->count && !errno; i++) {
       if (pread(state->fds[i], cdata, sizeof(cdata), 0) > 0) {
         sum_w += strtod(cdata, NULL);
+		//cout<<sum_w;
       }
     }
     err_save = errno;
@@ -232,7 +198,12 @@ static void* odroid_poll_sensors(void* args) {
       errno = err_save;
       perror("odroid_poll_sensors: skipping power sensor reading");
     } else {
-      state->total_uj += sum_w * exec_us;
+		//cout<<"adding energy";
+      //if you want to monitor power then remove next line and uncomment the one after that
+      state->total_uj = sum_w*exec_us;
+      //  state->total_uj = sum_w;
+
+//	printf("%f",sum_w);
     }
     // sleep for the update interval of the sensors
     if (state->poll_sensors) {
@@ -300,7 +271,7 @@ int energymon_init_odroid(energymon* em) {
   }
 
   // get the delay time between reads
-  state->read_delay_us = get_update_interval(sensor_dirs, state->count);
+  state->read_delay_us = INA231_DEFAULT_UPDATE_INTERVAL_US;
 
   // we're finished with this variable
   free_sensor_directories(sensor_dirs, state->count);
@@ -316,7 +287,7 @@ int energymon_init_odroid(energymon* em) {
   return 0;
 }
 
-uint64_t energymon_read_total_odroid(const energymon* em) {
+double energymon_read_total_odroid(const energymon* em) {
   if (em == NULL || em->state == NULL) {
     errno = EINVAL;
     return 0;
@@ -365,3 +336,4 @@ int energymon_get_odroid(energymon* em) {
   em->state = NULL;
   return 0;
 }
+
